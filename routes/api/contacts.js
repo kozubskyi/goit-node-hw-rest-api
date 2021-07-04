@@ -21,18 +21,17 @@ function validatePostContactBody(req, res, next) {
 }
 
 function validatePatchContactBody(req, res, next) {
-  if (Object.keys(req.body).length === 0) return res.status(400).send({ message: "missing fields" })
+  // if (Object.keys(req.body).length === 0) return res.status(400).send({ message: "missing fields" })
 
   const schema = Joi.object({
     name: Joi.string(),
     email: Joi.string(),
     phone: Joi.string(),
-  }).required()
-  // ? Почему если я посылаю запрос без body, не отрабатывается ошибка, я же указал Joi.object(...).required()
+  }).or("name", "email", "phone")
 
   const { error } = schema.validate(req.body)
 
-  if (error) return res.status(400).send(error)
+  if (error) return res.status(400).send({ message: "missing fields" })
 
   next()
 }
