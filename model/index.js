@@ -57,18 +57,13 @@ const addContact = async ({ name, email, phone }) => {
   }
 }
 
-const updateContact = async (contactId, { name, email, phone }) => {
+const updateContact = async (contactId, body) => {
   try {
     const contacts = await listContacts()
     const contactToUpdate = contacts.find((contact) => contact.id.toString() === contactId)
 
     if (contactToUpdate) {
-      const updatedContact = {
-        id: contactToUpdate.id,
-        name: name || contactToUpdate.name,
-        email: email || contactToUpdate.email,
-        phone: phone || contactToUpdate.phone,
-      }
+      const updatedContact = { ...contactToUpdate, ...body }
 
       contacts.splice(contacts.indexOf(contactToUpdate), 1, updatedContact)
 
