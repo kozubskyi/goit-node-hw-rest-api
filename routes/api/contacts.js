@@ -4,6 +4,8 @@ const router = express.Router()
 
 const { listContacts, getContactById, removeContact, addContact, updateContact } = require("../../model/index")
 
+const notFoundMes = { message: "Not found" }
+
 // Validation
 
 function validatePostContactBody(req, res, next) {
@@ -42,7 +44,7 @@ router.get("/", async (req, res, next) => res.json(await listContacts()))
 
 router.get("/:contactId", async (req, res, next) => {
   const contact = await getContactById(req.params.contactId)
-  contact ? res.json(contact) : res.status(404).json({ message: "Not found" })
+  contact ? res.json(contact) : res.status(404).json(notFoundMes)
 })
 
 router.post("/", validatePostContactBody, async (req, res, next) => res.status(201).json(await addContact(req.body)))
@@ -50,12 +52,12 @@ router.post("/", validatePostContactBody, async (req, res, next) => res.status(2
 router.delete("/:contactId", async (req, res, next) =>
   (await removeContact(req.params.contactId))
     ? res.status(200).json({ message: "contact deleted" })
-    : res.status(404).json({ message: "Not found" })
+    : res.status(404).json(notFoundMes)
 )
 
 router.patch("/:contactId", validatePatchContactBody, async (req, res, next) => {
   const updatedContact = await updateContact(req.params.contactId, req.body)
-  updatedContact ? res.json(updatedContact) : res.status(404).json({ message: "Not found" })
+  updatedContact ? res.json(updatedContact) : res.status(404).json(notFoundMes)
 })
 
 module.exports = router
