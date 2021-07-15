@@ -1,17 +1,17 @@
 const express = require("express")
 const Joi = require("joi")
+Joi.objectId = require("joi-objectid")(Joi)
 const router = express.Router()
+const { ContactModel } = require("../../model/contact.model")
 
-const { listContacts, getContactById, removeContact, addContact, updateContact } = require("../../model/index")
-
-const notFoundMes = { message: "Not found" }
+const notFoundObj = { message: "Not found" }
 
 // Validation
 
 function validatePostContactBody(req, res, next) {
   const schema = Joi.object({
     name: Joi.string().required(),
-    email: Joi.string().required(),
+    email: Joi.string().email().required(),
     phone: Joi.string().required(),
   })
 
@@ -23,11 +23,9 @@ function validatePostContactBody(req, res, next) {
 }
 
 function validatePatchContactBody(req, res, next) {
-  // if (Object.keys(req.body).length === 0) return res.status(400).send({ message: "missing fields" })
-
   const schema = Joi.object({
     name: Joi.string(),
-    email: Joi.string(),
+    email: Joi.string().email(),
     phone: Joi.string(),
   }).or("name", "email", "phone")
 
@@ -38,26 +36,59 @@ function validatePatchContactBody(req, res, next) {
   next()
 }
 
+function validateIdParams(req, res, next) {
+  const schema = Joi.object({
+    contactId: Joi.objectId(),
+  })
+
+  const { error } = schema.validate(req.params)
+
+  if (error) {
+    return res.status(400).send({ message: `Bad Request. Contact with id ${error._original.contactId} nod found` })
+  }
+
+  next()
+}
+
+function validatePatchFavoriteBody(req, res, next) {
+  const schema = Joi.object({
+    favorite: Joi.boolean().required(),
+  })
+
+  const { error } = schema.validate(req.body)
+
+  if (error) return res.status(400).send({ message: "missing field favorite" })
+
+  next()
+}
+
 // Methods
 
-router.get("/", async (req, res, next) => res.json(await listContacts()))
+router.get("/", async (req, res, next) => res.json(await ContactModel.find()))
 
-router.get("/:contactId", async (req, res, next) => {
-  const contact = await getContactById(req.params.contactId)
-  contact ? res.json(contact) : res.status(404).json(notFoundMes)
+router.get("/:contactId", validateIdParams, async (req, res, next) => {
+  const contact = await ContactModel.findById(req.params.contactId)
+  contact ? res.json(contact) : res.status(404).json(notFoundObj)
 })
 
-router.post("/", validatePostContactBody, async (req, res, next) => res.status(201).json(await addContact(req.body)))
-
-router.delete("/:contactId", async (req, res, next) =>
-  (await removeContact(req.params.contactId))
-    ? res.status(200).json({ message: "contact deleted" })
-    : res.status(404).json(notFoundMes)
+router.post("/", validatePostContactBody, async (req, res, next) =>
+  res.status(201).json(await ContactModel.create(req.body))
 )
 
-router.patch("/:contactId", validatePatchContactBody, async (req, res, next) => {
-  const updatedContact = await updateContact(req.params.contactId, req.body)
-  updatedContact ? res.json(updatedContact) : res.status(404).json(notFoundMes)
+router.delete("/:contactId", validateIdParams, async (req, res, next) =>
+  (await ContactModel.findByIdAndDelete(req.params.contactId))
+    ? res.status(200).json({ message: "contact deleted" })
+    : res.status(404).json(notFoundObj)
+)
+
+router.patch("/:contactId", validateIdParams, validatePatchContactBody, async (req, res, next) => {
+  const updatedContact = await ContactModel.findByIdAndUpdate(req.params.contactId, req.body, { new: true })
+  updatedContact ? res.json(updatedContact) : res.status(404).json(notFoundObj)
+})
+
+router.patch("/:contactId/favorite", validateIdParams, validatePatchFavoriteBody, async (req, res, next) => {
+  const updatedContact = await ContactModel.findByIdAndUpdate(req.params.contactId, req.body, { new: true })
+  updatedContact ? res.json(updatedContact) : res.status(404).json(notFoundObj)
 })
 
 module.exports = router
