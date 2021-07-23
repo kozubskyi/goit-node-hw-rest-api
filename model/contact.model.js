@@ -15,8 +15,10 @@ const contactSchema = new Schema({
     type: Boolean,
     default: false,
   },
+  owner: {
+    type: Schema.Types.ObjectId,
+    ref: "user",
+  },
 })
 
-const ContactModel = model("Contact", contactSchema)
-
-exports.ContactModel = ContactModel
+exports.ContactModel = model("Contact", contactSchema)
