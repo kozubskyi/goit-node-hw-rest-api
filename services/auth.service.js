@@ -1,6 +1,7 @@
 const { UserModel } = require("../model/user.model")
 const { Conflict, BadRequest } = require("http-errors")
 const jwt = require("jsonwebtoken")
+const gravatar = require("gravatar")
 
 class AuthService {
   async signup(reqBody) {
@@ -18,6 +19,7 @@ class AuthService {
     const newUser = await UserModel.create({
       email,
       password: await UserModel.hashPassword(password),
+      avatarURL: gravatar.url(email, { s: 400 }, true),
     })
 
     return newUser
@@ -52,6 +54,14 @@ class AuthService {
 
   async logout({ email }) {
     await UserModel.findOneAndUpdate({ email }, { $set: { token: null } })
+  }
+
+  async updateAvatar(req) {
+    const newAvatarURL = `/avatars/${req.file.filename}`
+
+    const user = await UserModel.findByIdAndUpdate(req.user._id, { $set: { avatarURL: newAvatarURL } }, { new: true })
+
+    return user.avatarURL
   }
 }
 

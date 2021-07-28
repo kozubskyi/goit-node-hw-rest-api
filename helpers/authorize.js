@@ -25,7 +25,7 @@ exports.authorize = catchWrapper(async (req, res, next) => {
     // 7. Call next()
     next()
   } catch (err) {
-    // 3. If token verificztion failed - throw 401 (Unauthorized) error
+    // 3. If token verification failed - throw 401 (Unauthorized) error
     next(new Unauthorized("Not authorized"))
   }
 })
