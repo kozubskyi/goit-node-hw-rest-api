@@ -74,7 +74,7 @@ router.patch(
   catchWrapper(async (req, res, next) => {
     const avatarURL = await authService.updateAvatar(req)
 
-    res.send({ avatarURL })
+    res.status(200).json({ avatarURL })
   })
 )
 
