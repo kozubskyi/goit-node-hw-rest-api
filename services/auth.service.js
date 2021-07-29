@@ -1,7 +1,9 @@
 const { UserModel } = require("../model/user.model")
-const { Conflict, BadRequest } = require("http-errors")
+const { Conflict, BadRequest, NotFound, Forbidden } = require("http-errors")
+const uniqid = require("uniqid")
 const jwt = require("jsonwebtoken")
 const gravatar = require("gravatar")
+const { mailingClient } = require("../helpers/mailing-client")
 
 class AuthService {
   async signup(reqBody) {
@@ -20,7 +22,10 @@ class AuthService {
       email,
       password: await UserModel.hashPassword(password),
       avatarURL: gravatar.url(email, { s: 400 }, true),
+      verificationToken: uniqid(),
     })
+
+    await mailingClient.sendVerificationEmail(newUser.email, newUser.verificationToken)
 
     return newUser
   }
@@ -37,6 +42,8 @@ class AuthService {
     // Вместо ошибки 401 я решил сделать ошибку 400 посольку Николай Левкин рекомендует ошибку 401 использовать только стокеном.
     if (!user) throw new BadRequest("Email or password is wrong")
 
+    if (user.verify === false) throw new Forbidden(`User hasn't verified email address yet`)
+
     // 4. Check password
     const isPasswordCorrect = await UserModel.isPasswordCorrect(password, user.password)
 
@@ -52,16 +59,31 @@ class AuthService {
     return user
   }
 
-  async logout({ email }) {
-    await UserModel.findOneAndUpdate({ email }, { $set: { token: null } })
+  async logout(email) {
+    await UserModel.findOneAndUpdate({ email }, { token: null })
   }
 
   async updateAvatar(req) {
     const newAvatarURL = `/avatars/${req.file.filename}`
 
-    const user = await UserModel.findByIdAndUpdate(req.user._id, { $set: { avatarURL: newAvatarURL } }, { new: true })
+    const user = await UserModel.findByIdAndUpdate(req.user._id, { avatarURL: newAvatarURL }, { new: true })
 
     return user.avatarURL
+  }
+
+  async verifyEmail(verificationToken) {
+    const user = await UserModel.findOneAndUpdate({ verificationToken }, { verify: true, verificationToken: null })
+
+    if (!user) throw new NotFound("User not found")
+  }
+
+  async sendOneMoreVerificationEmail(email) {
+    const user = await UserModel.findOne({ email })
+
+    if (!user) throw new NotFound("User not found")
+    if (user.verify) throw new BadRequest("Verification has already been passed")
+
+    await mailingClient.sendVerificationEmail(email, user.verificationToken)
   }
 }
 
