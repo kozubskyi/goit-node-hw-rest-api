@@ -1,15 +1,12 @@
 const router = require("express").Router()
-const multer = require("multer")
-const uniqid = require("uniqid")
-const path = require("path")
-const Jimp = require("jimp")
-const fs = require("fs")
 
 const { authService } = require("../../services/auth.service")
 const { validate } = require("../../helpers/validate")
 const { catchWrapper } = require("../../helpers/catch-wrapper")
 const { authorize } = require("../../helpers/authorize")
 const { userSchema } = require("../../joi-schemas/user.joi-schema")
+const { upload, compressImage } = require("../../helpers/multer")
+const { validatePostVerifyBody } = require("../../helpers/users-validation")
 
 router.post(
   "/signup",
@@ -47,24 +44,11 @@ router.post(
   "/logout",
   authorize,
   catchWrapper(async (req, res, next) => {
-    await authService.logout(req.user)
+    await authService.logout(req.user.email)
 
     res.status(204).send()
   })
 )
-
-const TMP_FILES_DIR_NAME = "tmp"
-const FILES_DIR_NAME = "public/avatars"
-
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: TMP_FILES_DIR_NAME,
-    filename: (req, file, cb) => {
-      const filename = uniqid() + path.extname(file.originalname)
-      cb(null, filename)
-    },
-  }),
-})
 
 router.patch(
   "/avatars",
@@ -74,19 +58,27 @@ router.patch(
   catchWrapper(async (req, res, next) => {
     const avatarURL = await authService.updateAvatar(req)
 
-    res.send({ avatarURL })
+    res.status(200).json({ avatarURL })
   })
 )
 
-async function compressImage(req, res, next) {
-  const file = await Jimp.read(req.file.path)
-  const filePath = req.file.path.replace(TMP_FILES_DIR_NAME, FILES_DIR_NAME)
-  await file.resize(250, 250).quality(70).writeAsync(filePath)
-  await fs.promises.unlink(req.file.path)
-  req.file.destination = req.file.destination.replace(TMP_FILES_DIR_NAME, FILES_DIR_NAME)
-  req.path = filePath
+router.get(
+  "/verify/:verificationToken",
+  catchWrapper(async (req, res, next) => {
+    await authService.verifyEmail(req.params.verificationToken)
 
-  next()
-}
+    res.status(200).json({ message: "Verification successful" })
+  })
+)
+
+router.post(
+  "/verify",
+  validatePostVerifyBody,
+  catchWrapper(async (req, res, next) => {
+    await authService.sendOneMoreVerificationEmail(req.body.email)
+
+    res.status(200).json({ message: "Verification email sent" })
+  })
+)
 
 module.exports = router
